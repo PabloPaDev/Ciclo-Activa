@@ -206,7 +206,7 @@ export default function AthleteCheckinPage() {
 	return (
 		<main className="mx-auto w-full max-w-[920px] flex-1 px-6 py-12 md:py-14">
 			<header className="mb-10 rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] px-6 py-6 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:px-8">
-				<div className="grid items-center gap-6 md:grid-cols-[160px_1fr_160px]">
+				<div className="grid items-center gap-6 md:grid-cols-[160px_1fr]">
 					<div className="flex items-center">
 						<Image
 							src="/Ciclo-Activa.png"
@@ -221,9 +221,6 @@ export default function AthleteCheckinPage() {
 						<p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7C4DFF]">CicloActiva</p>
 						<h1 className="mt-2 text-3xl font-bold tracking-tight text-[#0F2D2F] md:text-4xl">Portal atleta</h1>
 						<p className="mt-2 text-sm leading-relaxed text-[#5F6B6D]">Completa tu check-in diario para actualizar tu estado.</p>
-					</div>
-					<div className="flex items-center justify-start md:justify-end">
-						<Image src="/logoendurance.png" alt="Logo Endurance" width={140} height={40} className="h-auto w-auto object-contain" />
 					</div>
 				</div>
 			</header>

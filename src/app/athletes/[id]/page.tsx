@@ -369,7 +369,7 @@ export default function AthleteProfilePage() {
 	return (
 		<main className="mx-auto w-full max-w-[1200px] flex-1 px-6 py-12 md:py-14">
 			<header className="mb-10 rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] px-6 py-6 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:px-8 md:py-8">
-				<div className="grid items-center gap-6 md:grid-cols-[160px_1fr_auto_160px]">
+				<div className="grid items-center gap-6 md:grid-cols-[160px_1fr_auto]">
 					<div className="flex items-center">
 						<Image
 							src="/Ciclo-Activa.png"
@@ -392,9 +392,6 @@ export default function AthleteProfilePage() {
 						>
 							Volver al dashboard
 						</Link>
-					</div>
-					<div className="flex items-center justify-start md:justify-end">
-						<Image src="/logoendurance.png" alt="Logo Endurance" width={140} height={40} className="h-auto w-auto object-contain" />
 					</div>
 				</div>
 			</header>

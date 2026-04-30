@@ -86,7 +86,7 @@ export default function DashboardPage() {
 			<header className={`${headerCard} relative mb-6 overflow-hidden`}>
 				<div className="pointer-events-none absolute -right-8 top-0 h-32 w-32 rounded-full bg-[#D7EFE7]/50" aria-hidden />
 				<div className="pointer-events-none absolute bottom-0 left-1/4 h-24 w-24 rounded-full bg-[#7C4DFF]/6" aria-hidden />
-				<div className="relative grid items-center gap-5 md:grid-cols-[120px_1fr_120px] md:gap-6">
+				<div className="relative grid items-center gap-5 md:grid-cols-[120px_1fr] md:gap-6">
 					<div className="flex items-center">
 						<Image src="/Ciclo-Activa.png" alt="Logo Ciclo Activa" width={112} height={32} unoptimized className="h-auto w-auto object-contain" />
 					</div>
@@ -96,9 +96,6 @@ export default function DashboardPage() {
 						<p className="mt-2 max-w-xl text-sm leading-snug text-[#5F6B6D]">
 							Visión global de estado, riesgo y seguimiento de tus atletas.
 						</p>
-					</div>
-					<div className="flex items-center justify-start md:justify-end">
-						<Image src="/logoendurance.png" alt="Logo Endurance" width={112} height={32} className="h-auto w-auto object-contain" />
 					</div>
 				</div>
 			</header>

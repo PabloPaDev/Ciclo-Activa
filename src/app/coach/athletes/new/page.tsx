@@ -35,6 +35,19 @@ const INITIAL_FORM: FormState = {
 	notes: "",
 };
 
+/** Valores guardados tal cual en `athletes.menstrual_status` (texto libre sustituido por lista). */
+const MENSTRUAL_STATUS_OPTIONS: { value: string; label: string }[] = [
+	{ value: "", label: "Seleccionar…" },
+	{ value: "Ciclo regular", label: "Ciclo regular" },
+	{ value: "Ciclo irregular", label: "Ciclo irregular" },
+	{ value: "Amenorrea", label: "Amenorrea" },
+	{ value: "Oligomenorrea", label: "Oligomenorrea" },
+	{ value: "Sangrado irregular o prolongado", label: "Sangrado irregular o prolongado" },
+	{ value: "Lactancia o posparto (ciclo en adaptación)", label: "Lactancia o posparto (ciclo en adaptación)" },
+	{ value: "Menopausia o climaterio", label: "Menopausia o climaterio" },
+	{ value: "Prefiero no indicar", label: "Prefiero no indicar" },
+];
+
 function parseNullableNumber(value: string): number | null {
 	const trimmed = value.trim();
 	if (!trimmed) return null;
@@ -186,11 +199,13 @@ export default function NewAthletePage() {
 	const inputClass =
 		"w-full rounded-xl border border-[#D9DDD8] bg-white px-3 py-2.5 text-[#0F2D2F] outline-none transition focus:border-[#0F5C63]/45 focus:ring-2 focus:ring-[#0F5C63]/12";
 
+	const selectClass = `${inputClass} cursor-pointer`;
+
 	return (
 		<main className="mx-auto w-full max-w-[980px] flex-1 px-6 py-12 md:py-14">
 			<header className="relative mb-10 overflow-hidden rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] px-6 py-8 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:px-10">
 				<div className="pointer-events-none absolute -right-6 top-0 h-32 w-32 rounded-full bg-[#D7EFE7]/50" aria-hidden />
-				<div className="relative grid items-center gap-6 md:grid-cols-[160px_1fr_auto_160px]">
+				<div className="relative grid items-center gap-6 md:grid-cols-[160px_1fr_auto]">
 					<div className="flex items-center">
 						<Image src="/Ciclo-Activa.png" alt="Logo Ciclo Activa" width={140} height={40} unoptimized className="h-auto w-auto object-contain" />
 					</div>
@@ -217,9 +232,6 @@ export default function NewAthletePage() {
 					>
 						Volver
 					</Link>
-					<div className="flex items-center justify-start md:justify-end">
-						<Image src="/logoendurance.png" alt="Logo Endurance" width={140} height={40} className="h-auto w-auto object-contain" />
-					</div>
 				</div>
 			</header>
 
@@ -330,12 +342,17 @@ export default function NewAthletePage() {
 							{fieldColumns.menstrualStatus && (
 								<label className="text-sm font-medium text-[#0F2D2F]">
 									<span className="mb-1 block">Estado menstrual</span>
-									<input
-										type="text"
+									<select
 										value={form.menstrual_status}
 										onChange={(event) => setForm((prev) => ({ ...prev, menstrual_status: event.target.value }))}
-										className={inputClass}
-									/>
+										className={selectClass}
+									>
+										{MENSTRUAL_STATUS_OPTIONS.map((opt) => (
+											<option key={opt.value || "__none"} value={opt.value}>
+												{opt.label}
+											</option>
+										))}
+									</select>
 								</label>
 							)}
 							{fieldColumns.contraception && (
