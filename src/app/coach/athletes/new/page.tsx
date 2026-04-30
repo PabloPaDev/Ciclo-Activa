@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { validateNewAthleteBasics } from "@/lib/athletes/newAthleteValidation";
+import { resolveCoachIdForSession } from "@/lib/coach/resolveCoachId";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { filterByColumns, getPublicTableColumns } from "@/lib/supabase/schema";
+import { logPostgrestError } from "@/lib/supabase/postgrestError";
 
 type FormState = {
 	full_name: string;
@@ -35,7 +37,6 @@ const INITIAL_FORM: FormState = {
 	notes: "",
 };
 
-/** Valores guardados tal cual en `athletes.menstrual_status` (texto libre sustituido por lista). */
 const MENSTRUAL_STATUS_OPTIONS: { value: string; label: string }[] = [
 	{ value: "", label: "Seleccionar…" },
 	{ value: "Ciclo regular", label: "Ciclo regular" },
@@ -48,30 +49,17 @@ const MENSTRUAL_STATUS_OPTIONS: { value: string; label: string }[] = [
 	{ value: "Prefiero no indicar", label: "Prefiero no indicar" },
 ];
 
-function parseNullableNumber(value: string): number | null {
-	const trimmed = value.trim();
-	if (!trimmed) return null;
-	const parsed = Number(trimmed);
-	return Number.isFinite(parsed) ? parsed : null;
-}
-
-function resolveColumn(columns: Set<string> | null, candidates: string[]): string | null {
-	if (!columns) return candidates[0] ?? null;
-	for (const candidate of candidates) {
-		if (columns.has(candidate)) return candidate;
-	}
-	return null;
-}
-
 export default function NewAthletePage() {
 	const router = useRouter();
 	const [form, setForm] = useState<FormState>(INITIAL_FORM);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-	const [athletesColumns, setAthletesColumns] = useState<Set<string> | null>(null);
-	const [coachAthletesColumns, setCoachAthletesColumns] = useState<Set<string> | null>(null);
 	const [coachId, setCoachId] = useState<string | null>(null);
+
+	const canSubmit = useMemo(() => {
+		return Boolean(form.full_name.trim() && form.email.trim() && form.sport.trim());
+	}, [form.full_name, form.email, form.sport]);
 
 	useEffect(() => {
 		const run = async () => {
@@ -95,25 +83,8 @@ export default function NewAthletePage() {
 				return;
 			}
 
-			const [athletesCols, coachAthletesCols] = await Promise.all([
-				getPublicTableColumns(supabase, "athletes"),
-				getPublicTableColumns(supabase, "coach_athletes"),
-			]);
-			setAthletesColumns(athletesCols);
-			setCoachAthletesColumns(coachAthletesCols);
-
-			const { data: coachData } = await supabase.from("coaches").select("id").eq("user_id", session.user.id).limit(1).maybeSingle();
-			if (coachData?.id) {
-				setCoachId(coachData.id as string);
-			} else {
-				const { data: coachFallback } = await supabase
-					.from("coach_athlete_overview")
-					.select("coach_id")
-					.eq("coach_user_id", session.user.id)
-					.limit(1)
-					.maybeSingle();
-				setCoachId((coachFallback?.coach_id as string | undefined) ?? null);
-			}
+			const resolvedCoachId = await resolveCoachIdForSession(supabase, session.user.id);
+			setCoachId(resolvedCoachId);
 
 			setIsLoading(false);
 		};
@@ -121,29 +92,28 @@ export default function NewAthletePage() {
 		void run();
 	}, [router]);
 
-	const fieldColumns = useMemo(
-		() => ({
-			fullName: resolveColumn(athletesColumns, ["full_name", "name"]),
-			email: resolveColumn(athletesColumns, ["email"]),
-			birthDate: resolveColumn(athletesColumns, ["birth_date"]),
-			sport: resolveColumn(athletesColumns, ["sport", "main_sport"]),
-			trainingLevel: resolveColumn(athletesColumns, ["training_level"]),
-			trainingHours: resolveColumn(athletesColumns, ["training_hours_per_week"]),
-			height: resolveColumn(athletesColumns, ["height_cm"]),
-			weight: resolveColumn(athletesColumns, ["weight_kg"]),
-			menstrualStatus: resolveColumn(athletesColumns, ["menstrual_status"]),
-			contraception: resolveColumn(athletesColumns, ["uses_hormonal_contraception"]),
-			notes: resolveColumn(athletesColumns, ["notes"]),
-		}),
-		[athletesColumns],
-	);
-
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		setErrorMessage(null);
 
+		if (!canSubmit) {
+			return;
+		}
+
 		if (!coachId) {
-			setErrorMessage("No se encontro un coach vinculado para crear atletas.");
+			setErrorMessage("No se encontró un coach vinculado. Si usás demo, definí NEXT_PUBLIC_DEMO_COACH_ID.");
+			return;
+		}
+
+		const normalizedEmail = form.email.trim().toLowerCase();
+		const validation = validateNewAthleteBasics({
+			full_name: form.full_name,
+			email: normalizedEmail,
+			main_sport: form.sport,
+			birth_date: form.birth_date,
+		});
+		if (!validation.ok) {
+			setErrorMessage(validation.message);
 			return;
 		}
 
@@ -153,43 +123,60 @@ export default function NewAthletePage() {
 			return;
 		}
 
-		setIsSaving(true);
-
-		const athletePayloadRaw: Record<string, unknown> = {};
-		if (fieldColumns.fullName) athletePayloadRaw[fieldColumns.fullName] = form.full_name.trim() || null;
-		if (fieldColumns.email) athletePayloadRaw[fieldColumns.email] = form.email.trim() || null;
-		if (fieldColumns.birthDate) athletePayloadRaw[fieldColumns.birthDate] = form.birth_date || null;
-		if (fieldColumns.sport) athletePayloadRaw[fieldColumns.sport] = form.sport.trim() || null;
-		if (fieldColumns.trainingLevel) athletePayloadRaw[fieldColumns.trainingLevel] = form.training_level.trim() || null;
-		if (fieldColumns.trainingHours) athletePayloadRaw[fieldColumns.trainingHours] = parseNullableNumber(form.training_hours_per_week);
-		if (fieldColumns.height) athletePayloadRaw[fieldColumns.height] = parseNullableNumber(form.height_cm);
-		if (fieldColumns.weight) athletePayloadRaw[fieldColumns.weight] = parseNullableNumber(form.weight_kg);
-		if (fieldColumns.menstrualStatus) athletePayloadRaw[fieldColumns.menstrualStatus] = form.menstrual_status.trim() || null;
-		if (fieldColumns.contraception) athletePayloadRaw[fieldColumns.contraception] = form.uses_hormonal_contraception;
-		if (fieldColumns.notes) athletePayloadRaw[fieldColumns.notes] = form.notes.trim() || null;
-
-		const athletePayload = filterByColumns(athletePayloadRaw, athletesColumns);
-		const { data: athleteInsertData, error: athleteInsertError } = await supabase.from("athletes").insert(athletePayload).select("id").maybeSingle();
-
-		if (athleteInsertError || !athleteInsertData?.id) {
-			setIsSaving(false);
-			setErrorMessage("No se pudo crear la atleta. Revisa los datos requeridos de la tabla athletes.");
+		const { data: sessionData } = await supabase.auth.getSession();
+		const accessToken = sessionData.session?.access_token;
+		if (!accessToken) {
+			setErrorMessage("No hay sesión. Volvé a iniciar sesión.");
 			return;
 		}
 
-		const athleteId = athleteInsertData.id as string;
-		const linkPayloadRaw: Record<string, unknown> = {
-			coach_id: coachId,
-			athlete_id: athleteId,
-			relation_status: "active",
+		setIsSaving(true);
+
+		const res = await fetch("/api/coach/athletes", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${accessToken}`,
+			},
+			body: JSON.stringify({
+				full_name: form.full_name,
+				email: normalizedEmail,
+				birth_date: form.birth_date,
+				sport: form.sport,
+				training_level: form.training_level,
+				training_hours_per_week: form.training_hours_per_week,
+				height_cm: form.height_cm,
+				weight_kg: form.weight_kg,
+				menstrual_status: form.menstrual_status,
+				uses_hormonal_contraception: form.uses_hormonal_contraception,
+				notes: form.notes,
+			}),
+		});
+
+		const json = (await res.json().catch(() => ({}))) as {
+			error?: string;
+			code?: string;
+			details?: string | null;
+			hint?: string | null;
+			athleteId?: string;
 		};
-		const linkPayload = filterByColumns(linkPayloadRaw, coachAthletesColumns);
-		const { error: linkError } = await supabase.from("coach_athletes").insert(linkPayload);
 
 		setIsSaving(false);
 
-		if (linkError) {
-			setErrorMessage("La atleta se creo, pero no se pudo vincular al coach actual.");
+		if (!res.ok) {
+			logPostgrestError("api POST /api/coach/athletes", {
+				message: typeof json.error === "string" ? json.error : res.statusText || "Error desconocido",
+				details: json.details ?? null,
+				hint: json.hint ?? null,
+				code: json.code,
+			});
+			setErrorMessage(typeof json.error === "string" ? json.error : "No se pudo crear la atleta.");
+			return;
+		}
+
+		const athleteId = json.athleteId;
+		if (!athleteId) {
+			setErrorMessage("Respuesta inválida del servidor.");
 			return;
 		}
 
@@ -244,145 +231,121 @@ export default function NewAthletePage() {
 				{!isLoading && (
 					<form className="space-y-4" onSubmit={handleSubmit}>
 						<div className="grid gap-4 md:grid-cols-2">
-							{fieldColumns.fullName && (
-								<label className="text-sm font-medium text-[#0F2D2F]">
-									<span className="mb-1 block">Nombre completo</span>
-									<input
-										type="text"
-										required
-										value={form.full_name}
-										onChange={(event) => setForm((prev) => ({ ...prev, full_name: event.target.value }))}
-										className={inputClass}
-									/>
-								</label>
-							)}
-							{fieldColumns.email && (
-								<label className="text-sm font-medium text-[#0F2D2F]">
-									<span className="mb-1 block">Email</span>
-									<input
-										type="email"
-										value={form.email}
-										onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-										className={inputClass}
-									/>
-								</label>
-							)}
-							{fieldColumns.birthDate && (
-								<label className="text-sm font-medium text-[#0F2D2F]">
-									<span className="mb-1 block">Fecha de nacimiento</span>
-									<input
-										type="date"
-										value={form.birth_date}
-										onChange={(event) => setForm((prev) => ({ ...prev, birth_date: event.target.value }))}
-										className={inputClass}
-									/>
-								</label>
-							)}
-							{fieldColumns.sport && (
-								<label className="text-sm font-medium text-[#0F2D2F]">
-									<span className="mb-1 block">Deporte</span>
-									<input
-										type="text"
-										value={form.sport}
-										onChange={(event) => setForm((prev) => ({ ...prev, sport: event.target.value }))}
-										className={inputClass}
-									/>
-								</label>
-							)}
-							{fieldColumns.trainingLevel && (
-								<label className="text-sm font-medium text-[#0F2D2F]">
-									<span className="mb-1 block">Nivel de entrenamiento</span>
-									<input
-										type="text"
-										value={form.training_level}
-										onChange={(event) => setForm((prev) => ({ ...prev, training_level: event.target.value }))}
-										className={inputClass}
-									/>
-								</label>
-							)}
-							{fieldColumns.trainingHours && (
-								<label className="text-sm font-medium text-[#0F2D2F]">
-									<span className="mb-1 block">Horas/semana</span>
-									<input
-										type="number"
-										min={0}
-										step="0.1"
-										value={form.training_hours_per_week}
-										onChange={(event) => setForm((prev) => ({ ...prev, training_hours_per_week: event.target.value }))}
-										className={inputClass}
-									/>
-								</label>
-							)}
-							{fieldColumns.height && (
-								<label className="text-sm font-medium text-[#0F2D2F]">
-									<span className="mb-1 block">Altura (cm)</span>
-									<input
-										type="number"
-										min={0}
-										step="0.1"
-										value={form.height_cm}
-										onChange={(event) => setForm((prev) => ({ ...prev, height_cm: event.target.value }))}
-										className={inputClass}
-									/>
-								</label>
-							)}
-							{fieldColumns.weight && (
-								<label className="text-sm font-medium text-[#0F2D2F]">
-									<span className="mb-1 block">Peso (kg)</span>
-									<input
-										type="number"
-										min={0}
-										step="0.1"
-										value={form.weight_kg}
-										onChange={(event) => setForm((prev) => ({ ...prev, weight_kg: event.target.value }))}
-										className={inputClass}
-									/>
-								</label>
-							)}
-							{fieldColumns.menstrualStatus && (
-								<label className="text-sm font-medium text-[#0F2D2F]">
-									<span className="mb-1 block">Estado menstrual</span>
-									<select
-										value={form.menstrual_status}
-										onChange={(event) => setForm((prev) => ({ ...prev, menstrual_status: event.target.value }))}
-										className={selectClass}
-									>
-										{MENSTRUAL_STATUS_OPTIONS.map((opt) => (
-											<option key={opt.value || "__none"} value={opt.value}>
-												{opt.label}
-											</option>
-										))}
-									</select>
-								</label>
-							)}
-							{fieldColumns.contraception && (
-								<label className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-[#0F2D2F]">
-									<input
-										type="checkbox"
-										checked={form.uses_hormonal_contraception}
-										onChange={(event) => setForm((prev) => ({ ...prev, uses_hormonal_contraception: event.target.checked }))}
-										className="h-4 w-4 rounded border-[#D9DDD8] text-[#0F5C63] accent-[#0F5C63] focus:ring-[#0F5C63]"
-									/>
-									Usa anticonceptivos hormonales
-								</label>
-							)}
-						</div>
-
-						{fieldColumns.notes && (
 							<label className="text-sm font-medium text-[#0F2D2F]">
-								<span className="mb-1 block">Notas</span>
-								<textarea
-									rows={4}
-									value={form.notes}
-									onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+								<span className="mb-1 block">Nombre completo</span>
+								<input
+									type="text"
+									value={form.full_name}
+									onChange={(event) => setForm((prev) => ({ ...prev, full_name: event.target.value }))}
+									className={inputClass}
+									autoComplete="name"
+								/>
+							</label>
+							<label className="text-sm font-medium text-[#0F2D2F]">
+								<span className="mb-1 block">Email</span>
+								<input
+									type="email"
+									autoComplete="email"
+									value={form.email}
+									onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
 									className={inputClass}
 								/>
 							</label>
-						)}
+							<label className="text-sm font-medium text-[#0F2D2F]">
+								<span className="mb-1 block">Fecha de nacimiento</span>
+								<input
+									type="date"
+									value={form.birth_date}
+									onChange={(event) => setForm((prev) => ({ ...prev, birth_date: event.target.value }))}
+									className={inputClass}
+								/>
+							</label>
+							<label className="text-sm font-medium text-[#0F2D2F]">
+								<span className="mb-1 block">Deporte principal</span>
+								<input
+									type="text"
+									value={form.sport}
+									onChange={(event) => setForm((prev) => ({ ...prev, sport: event.target.value }))}
+									className={inputClass}
+								/>
+							</label>
+							<label className="text-sm font-medium text-[#0F2D2F]">
+								<span className="mb-1 block">Nivel de entrenamiento</span>
+								<input
+									type="text"
+									value={form.training_level}
+									onChange={(event) => setForm((prev) => ({ ...prev, training_level: event.target.value }))}
+									className={inputClass}
+								/>
+							</label>
+							<label className="text-sm font-medium text-[#0F2D2F]">
+								<span className="mb-1 block">Horas/semana</span>
+								<input
+									type="text"
+									inputMode="decimal"
+									value={form.training_hours_per_week}
+									onChange={(event) => setForm((prev) => ({ ...prev, training_hours_per_week: event.target.value }))}
+									className={inputClass}
+								/>
+							</label>
+							<label className="text-sm font-medium text-[#0F2D2F]">
+								<span className="mb-1 block">Altura (cm o m, ej. 160 o 1,60)</span>
+								<input
+									type="text"
+									inputMode="decimal"
+									value={form.height_cm}
+									onChange={(event) => setForm((prev) => ({ ...prev, height_cm: event.target.value }))}
+									className={inputClass}
+								/>
+							</label>
+							<label className="text-sm font-medium text-[#0F2D2F]">
+								<span className="mb-1 block">Peso (kg)</span>
+								<input
+									type="text"
+									inputMode="decimal"
+									value={form.weight_kg}
+									onChange={(event) => setForm((prev) => ({ ...prev, weight_kg: event.target.value }))}
+									className={inputClass}
+								/>
+							</label>
+							<label className="text-sm font-medium text-[#0F2D2F]">
+								<span className="mb-1 block">Estado menstrual</span>
+								<select
+									value={form.menstrual_status}
+									onChange={(event) => setForm((prev) => ({ ...prev, menstrual_status: event.target.value }))}
+									className={selectClass}
+								>
+									{MENSTRUAL_STATUS_OPTIONS.map((opt) => (
+										<option key={opt.value || "__none"} value={opt.value}>
+											{opt.label}
+										</option>
+									))}
+								</select>
+							</label>
+							<label className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-[#0F2D2F] md:col-span-2">
+								<input
+									type="checkbox"
+									checked={form.uses_hormonal_contraception}
+									onChange={(event) => setForm((prev) => ({ ...prev, uses_hormonal_contraception: event.target.checked }))}
+									className="h-4 w-4 rounded border-[#D9DDD8] text-[#0F5C63] accent-[#0F5C63] focus:ring-[#0F5C63]"
+								/>
+								Usa anticonceptivos hormonales
+							</label>
+						</div>
+
+						<label className="text-sm font-medium text-[#0F2D2F]">
+							<span className="mb-1 block">Notas</span>
+							<textarea
+								rows={4}
+								value={form.notes}
+								onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+								className={inputClass}
+							/>
+						</label>
 
 						<button
 							type="submit"
-							disabled={isSaving}
+							disabled={isSaving || !canSubmit}
 							className="inline-flex w-fit items-center rounded-xl bg-[#0F5C63] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0d4e54] disabled:cursor-not-allowed disabled:bg-[#D9DDD8] disabled:text-[#5F6B6D]"
 						>
 							{isSaving ? "Guardando..." : "Guardar y continuar"}
