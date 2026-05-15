@@ -5,18 +5,13 @@ import type { AthletePainOverviewRow } from "@/types/pain";
 import type { TrainingSessionWithFeedback } from "@/types/training";
 import type { DailyCheckinRow } from "@/types/daily-checkin";
 import { Profile360RadarCard } from "@/components/athletes/Profile360RadarCard";
+import { MenstrualCycleCard } from "@/components/athletes/MenstrualCycleCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import type { ComponentProps } from "react";
 import { formatTechnicalLabel } from "@/lib/presentation/formatLabels";
 
-type MenstrualLogLike = {
-	phase: string | null;
-	menstrual_pain: number | null;
-	symptoms: string[] | null;
-};
-
-type MenstrualCycleLike = {
-	id: string;
-};
+type MenstrualLogProp = ComponentProps<typeof MenstrualCycleCard>["menstrualLog"];
+type MenstrualCycleProp = ComponentProps<typeof MenstrualCycleCard>["menstrualCycle"];
 
 type InitialProfileScore = {
 	domain_code: string;
@@ -32,23 +27,21 @@ interface AthleteStateSummarySectionProps {
 	athlete: CoachAthleteOverviewRow;
 	trainingSessions: TrainingSessionWithFeedback[];
 	painItems: AthletePainOverviewRow[];
-	menstrualLog: MenstrualLogLike | null;
-	menstrualCycle: MenstrualCycleLike | null;
+	menstrualLog: MenstrualLogProp;
+	menstrualCycle: MenstrualCycleProp;
 	initialProfileScores: InitialProfileScore[];
 	latestDailyCheckin: DailyCheckinRow | null;
+	menstrualError: string | null;
+	menstrualLogErrorInfo: ComponentProps<typeof MenstrualCycleCard>["menstrualLogErrorInfo"];
+	menstrualCycleErrorInfo: ComponentProps<typeof MenstrualCycleCard>["menstrualCycleErrorInfo"];
+	/** Oculta el CTA “Ver informe completo” dentro del radar (p. ej. en la página de informe). */
+	showInformeCtas?: boolean;
 }
 
 function displayValue(value: string | number | null | undefined): string {
 	if (value === null || value === undefined) return "Sin registrar";
 	if (typeof value === "string" && value.trim().length === 0) return "Sin registrar";
 	return String(value);
-}
-
-function formatDate(value: string | null | undefined): string {
-	if (!value) return "Sin registrar";
-	const parsedDate = new Date(value);
-	if (Number.isNaN(parsedDate.getTime())) return "Sin registrar";
-	return parsedDate.toLocaleDateString("es-ES");
 }
 
 function buildQuickReadText(
@@ -63,41 +56,41 @@ function buildQuickReadText(
 	const leafRisk = athlete.leaf_q_total ?? 0;
 
 	if (readinessScore < 55) {
-		statements.push("Conviene ajustar o controlar la carga de entrenamiento a corto plazo.");
+		statements.push("Las señales disponibles sugieren precaución al interpretar el informe y priorizar revisión con la atleta.");
 	} else if (readinessScore < 75) {
-		statements.push("Mantener una progresion conservadora de la carga con seguimiento cercano.");
+		statements.push("Las señales son intermedias; conviene integrarlas con el resto del perfil antes de decisiones firmes.");
 	} else {
-		statements.push("El estado general permite progresar carga con monitoreo habitual.");
+		statements.push("Las señales generales son favorables dentro de lo registrado; mantener seguimiento habitual del informe.");
 	}
 
 	if (leafRisk >= 8) {
-		statements.push("Existe riesgo LEAF-Q elevado y requiere seguimiento especifico.");
+		statements.push("Existe riesgo LEAF-Q elevado y requiere seguimiento específico en la valoración inicial.");
 	}
 
 	if (activePainCount > 0 || lastTrainingHasPain) {
-		statements.push("Hay molestias activas o recientes; priorizar control de sintomas antes de subir intensidad.");
+		statements.push("Hay molestias activas o recientes que deben ponderarse al interpretar el riesgo global.");
 	}
 
 	if (hasMenstrualSignals) {
-		statements.push("Revisar evolucion de sintomas menstruales y recuperacion en la planificacion semanal.");
+		statements.push("El ciclo menstrual aporta señales relevantes; contrastar con el bloque fisiológico de esta ficha.");
 	}
 
 	if ((latestDailyCheckin?.fatigue ?? 0) >= 7 || (latestDailyCheckin?.stress ?? 0) >= 7 || (latestDailyCheckin?.sleep_quality ?? 10) <= 4) {
-		statements.push("El check-in diario reporta fatiga/estres elevados o sueno bajo; conviene ajustar recuperacion.");
+		statements.push("El último check-in diario muestra fatiga/estrés elevados o sueño bajo; útil como contexto subjetivo reciente.");
 	}
 
 	if (statements.length === 1) {
-		statements.push("Continuar monitorizando readiness, molestias y percepcion de fatiga para detectar cambios tempranos.");
+		statements.push("Continuar monitorizando señales clave del informe para detectar cambios en próximas revisiones.");
 	}
 
 	return statements.join(" ");
 }
 
 function recommendedStateLabel(variant: "green" | "yellow" | "red" | "neutral"): string {
-	if (variant === "green") return "Puede mantener o progresar carga";
-	if (variant === "yellow") return "Conviene ajustar o controlar carga";
-	if (variant === "red") return "Reducir carga o revisar antes de entrenar fuerte";
-	return "Estado no concluyente";
+	if (variant === "green") return "Contexto favorable según señales disponibles";
+	if (variant === "yellow") return "Precaución: revisar factores de riesgo antes de decisiones exigentes";
+	if (variant === "red") return "Prioridad alta: revisar alertas y el informe completo antes de decisiones exigentes";
+	return "Estado no concluyente con los datos actuales";
 }
 
 function buildQuickReadReasons(
@@ -132,7 +125,7 @@ function buildQuickReadReasons(
 	}
 
 	if (hasMenstrualSignals) {
-		reasons.push("El ciclo/sintomas menstruales conviene integrarlos en la planificacion de carga.");
+		reasons.push("El ciclo menstrual conviene integrarlo en la interpretación del informe inicial.");
 	}
 
 	if ((latestDailyCheckin?.fatigue ?? 0) >= 7) {
@@ -191,17 +184,16 @@ export function AthleteStateSummarySection({
 	menstrualCycle,
 	initialProfileScores,
 	latestDailyCheckin,
+	menstrualError,
+	menstrualLogErrorInfo,
+	menstrualCycleErrorInfo,
+	showInformeCtas = true,
 }: AthleteStateSummarySectionProps) {
 	const readinessStatus = formatTechnicalLabel(athlete.readiness_status);
 	const activePainCount = painItems.filter((item) => (item.intensity ?? 0) > 0).length;
 	const lastTraining = trainingSessions[0] ?? null;
-	const lastTrainingLabel = lastTraining?.title ?? lastTraining?.sport ?? "Sin registrar";
-	const lastTrainingDate = formatDate(lastTraining?.started_at);
-	const currentCycle = menstrualLog?.phase
-		? formatTechnicalLabel(menstrualLog.phase)
-		: athlete.menstrual_status ?? (menstrualCycle ? "Con registro de ciclo" : null);
-	const hasMenstrualSignals = Boolean(menstrualLog?.phase || (athlete.menstrual_status ?? "").toLowerCase().includes("irregular"));
 	const lastTrainingHasPain = Boolean(lastTraining?.feedback?.had_pain);
+	const hasMenstrualSignals = Boolean(menstrualLog?.phase || (athlete.menstrual_status ?? "").toLowerCase().includes("irregular"));
 	const quickRead = buildQuickReadText(athlete, activePainCount, lastTrainingHasPain, hasMenstrualSignals, latestDailyCheckin);
 	const readinessVariant = resolveReadinessVariant(athlete.readiness_status);
 	const leafVariant = getLeafVariant(athlete.leaf_q_risk_level);
@@ -211,96 +203,87 @@ export function AthleteStateSummarySection({
 	const quickReadReasons = buildQuickReadReasons(athlete, activePainCount, lastTrainingHasPain, hasMenstrualSignals, latestDailyCheckin);
 
 	return (
-		<section className="space-y-6">
+		<section className="space-y-8">
 			<div className="max-w-3xl">
-				<p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#7C4DFF]">Seguimiento</p>
-				<h2 className="mt-2 text-2xl font-bold tracking-tight text-[#0F2D2F] md:text-3xl">Resumen de estado</h2>
+				<p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#7C4DFF]">Informe inicial de riesgo</p>
+				<h2 className="mt-2 text-2xl font-bold tracking-tight text-[#0F2D2F] md:text-3xl">Perfil 360º inicial y ciclo menstrual</h2>
 				<p className="mt-2 text-sm leading-relaxed text-[#5F6B6D]">
-					Vista rapida para orientar decisiones de carga, recuperacion y seguimiento.
+					CicloActiva permite generar un perfil inicial de riesgo de la atleta y contextualizarlo con su ciclo menstrual para apoyar la toma
+					de decisiones del profesional. No representa diagnóstico médico.
 				</p>
 			</div>
 
-			<div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-				<div className="min-w-0">
-					<Profile360RadarCard
-						athlete={athlete}
-						menstrualLog={menstrualLog}
-						menstrualCycle={menstrualCycle}
-						initialProfileScores={initialProfileScores}
-						trainingSessions={trainingSessions}
-					/>
-				</div>
+			<Profile360RadarCard
+				athlete={athlete}
+				menstrualLog={menstrualLog}
+				menstrualCycle={menstrualCycle}
+				initialProfileScores={initialProfileScores}
+				trainingSessions={trainingSessions}
+				showInformeCtas={showInformeCtas}
+			>
+				<article className="rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] p-6 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:p-8">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<h3 className="text-lg font-bold tracking-tight text-[#0F2D2F]">Estado actual</h3>
+						<StatusBadge label={formatTechnicalLabel(athlete.readiness_status)} variant={readinessVariant} />
+					</div>
+					<p className="mt-2 text-xs text-[#5F6B6D]">Resumen del estado global integrado en el informe inicial (readiness y señales asociadas).</p>
+					<div className="mt-6 grid grid-cols-2 gap-3 md:gap-4">
+						<div className={`rounded-xl border p-4 ${tileClassesByVariant(readinessVariant)}`}>
+							<p className="text-xs font-medium text-[#5F6B6D]">Estado global</p>
+							<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{displayValue(readinessStatus)}</p>
+						</div>
+						<div className={`rounded-xl border p-4 ${tileClassesByVariant(readinessVariant)}`}>
+							<p className="text-xs font-medium text-[#5F6B6D]">Puntuación readiness</p>
+							<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{displayValue(athlete.readiness_score)}</p>
+							<div className="mt-2 h-2 rounded-full bg-[#D9DDD8]/50">
+								<div className="h-full rounded-full bg-[#0F5C63]" style={{ width: `${readinessProgress}%` }} />
+							</div>
+						</div>
+						<div className={`rounded-xl border p-4 ${tileClassesByVariant(leafVariant)}`}>
+							<p className="text-xs font-medium text-[#5F6B6D]">Riesgo LEAF-Q</p>
+							<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{formatTechnicalLabel(athlete.leaf_q_risk_level)}</p>
+						</div>
+						<div className="rounded-xl border border-[#D9DDD8] bg-white p-4">
+							<p className="text-xs font-medium text-[#5F6B6D]">Alertas activas</p>
+							<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{displayValue(athlete.active_flags_count)}</p>
+							<div className="mt-2 h-2 rounded-full bg-[#D9DDD8]/50">
+								<div className="h-full rounded-full bg-[#C96B5C]" style={{ width: `${alertsProgress}%` }} />
+							</div>
+						</div>
+					</div>
+				</article>
 
-				<div className="space-y-6">
-					<article className="rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] p-6 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:p-8">
-						<div className="flex flex-wrap items-center justify-between gap-3">
-							<h3 className="text-lg font-bold tracking-tight text-[#0F2D2F]">Estado actual</h3>
+				<article className="rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] p-6 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:p-8">
+					<h3 className="text-lg font-bold tracking-tight text-[#0F2D2F]">Lectura rápida</h3>
+					<div className="mt-4 rounded-xl border border-[#D9DDD8] bg-white p-5">
+						<p className="text-xs font-semibold uppercase tracking-wide text-[#5F6B6D]">Estado recomendado</p>
+						<div className="mt-2 flex flex-wrap items-center gap-3">
 							<StatusBadge label={formatTechnicalLabel(athlete.readiness_status)} variant={readinessVariant} />
+							<p className="text-sm font-semibold text-[#0F2D2F]">{recommendedState}</p>
 						</div>
-						<div className="mt-6 grid grid-cols-2 gap-3 md:gap-4">
-							<div className={`rounded-xl border p-4 ${tileClassesByVariant(readinessVariant)}`}>
-								<p className="text-xs font-medium text-[#5F6B6D]">Estado readiness</p>
-								<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{displayValue(readinessStatus)}</p>
-							</div>
-							<div className={`rounded-xl border p-4 ${tileClassesByVariant(readinessVariant)}`}>
-								<p className="text-xs font-medium text-[#5F6B6D]">Score readiness</p>
-								<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{displayValue(athlete.readiness_score)}</p>
-								<div className="mt-2 h-2 rounded-full bg-[#D9DDD8]/50">
-									<div className="h-full rounded-full bg-[#0F5C63]" style={{ width: `${readinessProgress}%` }} />
-								</div>
-							</div>
-							<div className={`rounded-xl border p-4 ${tileClassesByVariant(leafVariant)}`}>
-								<p className="text-xs font-medium text-[#5F6B6D]">Riesgo LEAF-Q</p>
-								<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{formatTechnicalLabel(athlete.leaf_q_risk_level)}</p>
-							</div>
-							<div className="rounded-xl border border-[#D9DDD8] bg-white p-4">
-								<p className="text-xs font-medium text-[#5F6B6D]">Alertas activas</p>
-								<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{displayValue(athlete.active_flags_count)}</p>
-								<div className="mt-2 h-2 rounded-full bg-[#D9DDD8]/50">
-									<div className="h-full rounded-full bg-[#C96B5C]" style={{ width: `${alertsProgress}%` }} />
-								</div>
-							</div>
-							<div className="rounded-xl border border-[#D9DDD8] bg-white p-4">
-								<p className="text-xs font-medium text-[#5F6B6D]">Ciclo actual</p>
-								<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{displayValue(currentCycle)}</p>
-							</div>
-							<div className="rounded-xl border border-[#D9DDD8] bg-white p-4">
-								<p className="text-xs font-medium text-[#5F6B6D]">Molestias activas</p>
-								<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{activePainCount}</p>
-							</div>
-							<div className="col-span-2 rounded-xl border border-[#D9DDD8] bg-[#D7EFE7]/35 p-4">
-								<p className="text-xs font-medium text-[#5F6B6D]">Ultimo entrenamiento</p>
-								<p className="mt-1 text-sm font-semibold text-[#0F2D2F]">{displayValue(lastTrainingLabel)}</p>
-								<p className="mt-1 text-xs text-[#5F6B6D]">{lastTrainingDate}</p>
-							</div>
-						</div>
-					</article>
+					</div>
+					<div className="mt-5">
+						<p className="text-xs font-semibold uppercase tracking-wide text-[#5F6B6D]">Áreas a vigilar (motivos principales)</p>
+						<ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-[#5F6B6D]">
+							{quickReadReasons.map((reason) => (
+								<li key={reason}>{reason}</li>
+							))}
+						</ul>
+					</div>
+					<p className="mt-4 text-sm leading-relaxed text-[#0F2D2F]/90">{quickRead}</p>
+					<p className="mt-4 text-xs leading-relaxed text-[#5F6B6D]">
+						No representa diagnóstico médico. Es apoyo a la toma de decisiones del profesional.
+					</p>
+				</article>
+			</Profile360RadarCard>
 
-					<article className="rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] p-6 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:p-8">
-						<h3 className="text-lg font-bold tracking-tight text-[#0F2D2F]">Lectura rapida</h3>
-						<div className="mt-4 rounded-xl border border-[#D9DDD8] bg-white p-5">
-							<p className="text-xs font-semibold uppercase tracking-wide text-[#5F6B6D]">Estado recomendado</p>
-							<div className="mt-2 flex flex-wrap items-center gap-3">
-								<StatusBadge label={formatTechnicalLabel(athlete.readiness_status)} variant={readinessVariant} />
-								<p className="text-sm font-semibold text-[#0F2D2F]">{recommendedState}</p>
-							</div>
-						</div>
-						<div className="mt-5">
-							<p className="text-xs font-semibold uppercase tracking-wide text-[#5F6B6D]">Motivos principales</p>
-							<ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-[#5F6B6D]">
-								{quickReadReasons.map((reason) => (
-									<li key={reason}>{reason}</li>
-								))}
-							</ul>
-						</div>
-						<p className="mt-4 text-sm leading-relaxed text-[#0F2D2F]/90">{quickRead}</p>
-						<p className="mt-4 text-xs leading-relaxed text-[#5F6B6D]">
-							No representa diagnostico medico. Es una ayuda para contextualizar la toma de decisiones del
-							entrenador/profesional.
-						</p>
-					</article>
-				</div>
-			</div>
+			<MenstrualCycleCard
+				menstrualLog={menstrualLog}
+				menstrualCycle={menstrualCycle}
+				menstrualError={menstrualError}
+				menstrualLogErrorInfo={menstrualLogErrorInfo}
+				menstrualCycleErrorInfo={menstrualCycleErrorInfo}
+			/>
 		</section>
 	);
 }

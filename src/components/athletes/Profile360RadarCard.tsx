@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer } from "recharts";
 import type { CoachAthleteOverviewRow } from "@/types/dashboard";
 import type { TrainingSessionWithFeedback } from "@/types/training";
@@ -30,6 +32,10 @@ interface Profile360RadarCardProps {
 	menstrualCycle: MenstrualCycleLike | null;
 	trainingSessions: TrainingSessionWithFeedback[];
 	initialProfileScores: InitialProfileScore[];
+	/** Contenido entre el radar y el resumen de fuentes (p. ej. estado actual y lectura rápida). */
+	children?: ReactNode;
+	/** En informe impreso/PDF no mostrar CTA duplicada. */
+	showInformeCtas?: boolean;
 }
 
 const DOMAIN_ORDER = [
@@ -238,6 +244,8 @@ export function Profile360RadarCard({
 	menstrualCycle,
 	trainingSessions,
 	initialProfileScores,
+	children,
+	showInformeCtas = true,
 }: Profile360RadarCardProps) {
 	const hasInitialScores = initialProfileScores.length > 0;
 	const initialScoresByDomain = new Map(initialProfileScores.map((item) => [item.domain_code, item]));
@@ -277,7 +285,10 @@ export function Profile360RadarCard({
 	return (
 		<section className="rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] p-6 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:p-8">
 			<h2 className="text-xl font-bold tracking-tight text-[#0F2D2F] md:text-2xl">Perfil 360º inicial</h2>
-			<p className="mt-2 text-sm leading-relaxed text-[#5F6B6D]">Resumen visual de las áreas evaluadas en la primera valoración.</p>
+			<p className="mt-2 text-sm leading-relaxed text-[#5F6B6D]">
+				Informe inicial de riesgo: resumen visual de las áreas evaluadas en la primera valoración para apoyar la toma de decisiones del
+				profesional.
+			</p>
 			<div className="mt-6 h-[360px] w-full min-w-0">
 				<ResponsiveContainer width="100%" height="100%">
 					<RadarChart data={data} outerRadius="70%">
@@ -288,6 +299,17 @@ export function Profile360RadarCard({
 					</RadarChart>
 				</ResponsiveContainer>
 			</div>
+			{children ? <div className="mt-6 space-y-6">{children}</div> : null}
+			{showInformeCtas ? (
+				<div className="report-no-print mt-6">
+					<Link
+						href={`/dashboard/athletes/${athlete.athlete_id}/report`}
+						className="inline-flex items-center rounded-xl bg-[#0F5C63] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0d4e54]"
+					>
+						Ver informe completo
+					</Link>
+				</div>
+			) : null}
 			<div className="mt-6 grid gap-3 text-xs text-[#5F6B6D] md:grid-cols-3">
 				<p className="rounded-xl border border-[#4E9B6E]/25 bg-[#D7EFE7]/50 px-3 py-2.5"><span className="font-semibold text-[#0F5C63]">Datos reales:</span> {realCount}</p>
 				<p className="rounded-xl border border-[#D9A441]/25 bg-[#D9A441]/8 px-3 py-2.5"><span className="font-semibold text-[#7A5A12]">Estimados:</span> {estimatedCount}</p>
@@ -295,7 +317,7 @@ export function Profile360RadarCard({
 			</div>
 			<div className="mt-6 grid gap-4 md:grid-cols-2">
 				<article className="rounded-xl border border-[#D9DDD8] bg-white p-5">
-					<p className="text-xs font-semibold uppercase tracking-wide text-[#5F6B6D]">Areas principales a vigilar</p>
+					<p className="text-xs font-semibold uppercase tracking-wide text-[#5F6B6D]">Áreas principales a vigilar</p>
 					{topDomains.length === 0 ? (
 						<p className="mt-2 text-sm text-[#5F6B6D]">Sin scores iniciales registrados.</p>
 					) : (
@@ -307,7 +329,7 @@ export function Profile360RadarCard({
 					)}
 				</article>
 				<article className="rounded-xl border border-[#D9DDD8] bg-white p-5">
-					<p className="text-xs font-semibold uppercase tracking-wide text-[#5F6B6D]">Areas con menor senal actual</p>
+					<p className="text-xs font-semibold uppercase tracking-wide text-[#5F6B6D]">Áreas con menor señal actual</p>
 					{lowDomains.length === 0 ? (
 						<p className="mt-2 text-sm text-[#5F6B6D]">Sin scores iniciales registrados.</p>
 					) : (
@@ -326,7 +348,7 @@ export function Profile360RadarCard({
 							<th className="w-[28%] py-3 pr-3 pl-4 font-semibold">Eje</th>
 							<th className="w-[22%] py-3 pr-3 font-semibold">Fuente</th>
 							<th className="w-[16%] py-3 pr-3 font-semibold">Estado</th>
-							<th className="w-[34%] py-3 pr-4 font-semibold">Interpretación</th>
+							<th className="w-[34%] py-3 pr-4 font-semibold">Interpretación por eje</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -343,6 +365,7 @@ export function Profile360RadarCard({
 			</div>
 			<p className="mt-4 text-xs leading-relaxed text-[#5F6B6D]">
 				Más hacia fuera indica mayor necesidad de atención o seguimiento. Los ejes pendientes no deben interpretarse como ausencia de riesgo.
+				Información orientativa para el profesional; no representa diagnóstico médico.
 			</p>
 		</section>
 	);

@@ -190,9 +190,8 @@ export default function NewAthletePage() {
 
 	return (
 		<main className="mx-auto w-full max-w-[980px] flex-1 px-6 py-12 md:py-14">
-			<header className="relative mb-10 overflow-hidden rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] px-6 py-8 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:px-10">
-				<div className="pointer-events-none absolute -right-6 top-0 h-32 w-32 rounded-full bg-[#D7EFE7]/50" aria-hidden />
-				<div className="relative grid items-center gap-6 md:grid-cols-[160px_1fr_auto]">
+			<header className="mb-10 rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] px-6 py-8 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:px-10">
+				<div className="grid items-center gap-6 md:grid-cols-[160px_1fr_auto]">
 					<div className="flex items-center">
 						<Image src="/Ciclo-Activa.png" alt="Logo Ciclo Activa" width={140} height={40} unoptimized className="h-auto w-auto object-contain" />
 					</div>

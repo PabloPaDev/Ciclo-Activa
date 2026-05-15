@@ -98,7 +98,9 @@ export function MenstrualCycleCard({
 	return (
 		<article className="rounded-[1.125rem] border border-[#D9DDD8] bg-[#FCFBF8] p-6 shadow-[0_4px_24px_rgba(15,45,47,0.06)] md:col-span-2 md:p-8">
 			<h3 className="text-xl font-bold tracking-tight text-[#0F2D2F] md:text-2xl">Ciclo menstrual</h3>
-			<p className="mt-2 text-sm leading-relaxed text-[#5F6B6D]">Seguimiento manual del ciclo y sintomas asociados.</p>
+			<p className="mt-2 text-sm leading-relaxed text-[#5F6B6D]">
+				Contexto fisiológico reciente (autorregistro) para contrastar con el informe inicial de riesgo.
+			</p>
 
 			{menstrualError ? (
 				<div className="mt-4 space-y-3">
@@ -163,8 +165,9 @@ export function MenstrualCycleCard({
 				</>
 			)}
 
-			<p className="mt-4 text-xs leading-relaxed text-[#5F6B6D]">
-				Informacion orientativa para contextualizar carga, recuperacion y sintomas. No sustituye valoracion medica.
+			<p className="mt-4 rounded-lg border border-[#D9A441]/30 bg-[#D9A441]/10 px-3 py-2 text-xs leading-relaxed text-[#7A5A12]">
+				Información orientativa para apoyar la interpretación del profesional. No sustituye valoración médica ni constituye por sí sola un
+				diagnóstico.
 			</p>
 		</article>
 	);

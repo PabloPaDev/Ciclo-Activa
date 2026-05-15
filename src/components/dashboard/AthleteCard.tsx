@@ -15,8 +15,17 @@ function resolveReadinessVariant(status: string | null): "green" | "yellow" | "r
 	return "neutral";
 }
 
-function getStatusSummary(_variant: "green" | "yellow" | "red" | "neutral"): string {
-	return "Estado de precaucion: requiere seguimiento cercano antes de aumentar la carga.";
+function getStatusSummary(variant: "green" | "yellow" | "red" | "neutral"): string {
+	if (variant === "red") {
+		return "Perfil con señales de prioridad en el informe inicial; revisar alertas y riesgo LEAF-Q antes de decisiones exigentes.";
+	}
+	if (variant === "yellow") {
+		return "Perfil en precaución; contrastar la lectura rápida con los ejes del radar y el contexto menstrual.";
+	}
+	if (variant === "green") {
+		return "Perfil relativamente estable en las señales globales del informe inicial; mantener revisión periódica.";
+	}
+	return "Estado global no concluyente o con datos insuficientes en el informe inicial.";
 }
 
 function getRecommendation(
@@ -29,15 +38,15 @@ function getRecommendation(
 	const hasHighLeafRisk = normalizedLeafRisk.includes("high") || normalizedLeafRisk.includes("alto");
 
 	if (variant === "red" || hasHighLeafRisk || alerts >= 2) {
-		return "Evitar carga intensa, revisar sintomas clave y priorizar recuperacion antes de progresar.";
+		return "Priorizar revisión del informe completo y de las alertas antes de decisiones de alta exigencia.";
 	}
 	if (variant === "yellow" || alerts === 1) {
-		return "Evitar carga intensa, revisar sintomas clave y priorizar recuperacion antes de progresar.";
+		return "Integrar el informe inicial con el ciclo menstrual y las alertas antes de decisiones firmes.";
 	}
 	if (variant === "green") {
-		return "Evitar carga intensa, revisar sintomas clave y priorizar recuperacion antes de progresar.";
+		return "Usar el informe como línea base; seguir monitorizando señales en próximas revisiones.";
 	}
-	return "Evitar carga intensa, revisar sintomas clave y priorizar recuperacion antes de progresar.";
+	return "Completar datos pendientes del perfil inicial para afinar la lectura del informe.";
 }
 
 export function AthleteCard({ athlete }: AthleteCardProps) {
@@ -81,28 +90,15 @@ export function AthleteCard({ athlete }: AthleteCardProps) {
 					</h3>
 					<p className="text-xs font-medium uppercase tracking-[0.06em] text-[#5F6B6D]">{athlete.main_sport ?? "Deporte no disponible"}</p>
 				</div>
-				<div className="shrink-0 rounded-full border border-[#D9DDD8] bg-[#FCFBF8] px-0.5 py-0.5">
-					<StatusBadge label={formatTechnicalLabel(athlete.readiness_status)} variant={readinessVariant} />
+				<div className="flex shrink-0 flex-col items-end gap-1">
+					<p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#5F6B6D]">Estado global</p>
+					<div className="rounded-full border border-[#D9DDD8] bg-[#FCFBF8] px-0.5 py-0.5">
+						<StatusBadge label={formatTechnicalLabel(athlete.readiness_status)} variant={readinessVariant} />
+					</div>
 				</div>
 			</div>
 
 			<div className="mt-3 flex min-w-0 gap-1.5 sm:gap-2">
-				<div className={pillClass}>
-					<p className="text-[9px] font-semibold uppercase leading-tight tracking-[0.06em] text-[#5F6B6D] sm:text-[10px]">
-						Horas/sem.
-					</p>
-					<p className="mt-0.5 truncate text-sm font-bold tabular-nums text-[#0F2D2F] sm:mt-1 sm:text-base">
-						{athlete.training_hours_per_week ?? "N/A"}
-					</p>
-				</div>
-				<div className={pillClass}>
-					<p className="text-[9px] font-semibold uppercase leading-tight tracking-[0.06em] text-[#5F6B6D] sm:text-[10px]">
-						Readiness
-					</p>
-					<p className="mt-0.5 truncate text-sm font-bold tabular-nums text-[#0F2D2F] sm:mt-1 sm:text-base">
-						{athlete.readiness_score ?? "N/A"}
-					</p>
-				</div>
 				<div className={pillClass}>
 					<p className="text-[9px] font-semibold uppercase leading-tight tracking-[0.06em] text-[#5F6B6D] sm:text-[10px]">LEAF-Q</p>
 					<p className="mt-0.5 truncate text-sm font-bold tabular-nums text-[#0F2D2F] sm:mt-1 sm:text-base">
@@ -111,7 +107,7 @@ export function AthleteCard({ athlete }: AthleteCardProps) {
 				</div>
 				<div className={pillClass}>
 					<p className="text-[9px] font-semibold uppercase leading-tight tracking-[0.06em] text-[#5F6B6D] sm:text-[10px]">
-						Riesgo L-Q
+						Riesgo LEAF-Q
 					</p>
 					<p className="mt-0.5 line-clamp-2 text-sm font-bold leading-tight text-[#0F2D2F] sm:mt-1 sm:line-clamp-1 sm:text-base">
 						{formatTechnicalLabel(athlete.leaf_q_risk_level)}
@@ -124,7 +120,7 @@ export function AthleteCard({ athlete }: AthleteCardProps) {
 			</div>
 
 			<div className="mt-3 border-t border-[#D9DDD8]/70 pt-3">
-				<p className="text-[11px] font-bold uppercase tracking-[0.05em] text-[#0F2D2F]">Factores principales del estado actual</p>
+				<p className="text-[11px] font-bold uppercase tracking-[0.05em] text-[#0F2D2F]">Señales destacadas en el informe</p>
 				{reasons.length === 0 ? (
 					<p className="mt-1 text-xs leading-snug text-[#5F6B6D]">No hay motivos registrados.</p>
 				) : (
@@ -141,11 +137,11 @@ export function AthleteCard({ athlete }: AthleteCardProps) {
 
 			<div className="mt-3 grid gap-2 md:grid-cols-2">
 				<div className="rounded-lg border border-[#D9DDD8] bg-[#D7EFE7]/35 px-3 py-2.5">
-					<p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#0F5C63]">Estado actual</p>
+					<p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#0F5C63]">Síntesis del informe</p>
 					<p className="mt-1 text-xs leading-snug text-[#0F2D2F]/90">{statusSummary}</p>
 				</div>
 				<div className="rounded-lg border border-[#D9DDD8] bg-white px-3 py-2.5">
-					<p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#7C4DFF]">Recomendación</p>
+					<p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#7C4DFF]">Apoyo a la decisión</p>
 					<p className="mt-1 text-xs leading-snug text-[#0F2D2F]/90">{recommendation}</p>
 				</div>
 			</div>
@@ -154,7 +150,7 @@ export function AthleteCard({ athlete }: AthleteCardProps) {
 				href={`/athletes/${athlete.athlete_id}`}
 				className="mt-3 inline-flex w-fit items-center rounded-lg bg-[#0F5C63] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0d4e54]"
 			>
-				Ver ficha
+				Ver informe
 			</Link>
 		</article>
 	);

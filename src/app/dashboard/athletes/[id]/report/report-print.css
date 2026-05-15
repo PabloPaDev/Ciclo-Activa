@@ -1,0 +1,63 @@
+/* Impresión / PDF — informe de coordinación */
+@media print {
+	.report-no-print {
+		display: none !important;
+	}
+
+	html,
+	body {
+		background: white !important;
+		background-image: none !important;
+	}
+
+	.informe-print-root {
+		max-width: 100% !important;
+		padding: 0 !important;
+	}
+
+	.informe-doc {
+		box-shadow: none !important;
+	}
+
+	.informe-doc-section {
+		border-radius: 0 !important;
+		box-shadow: none !important;
+	}
+
+	.informe-print-avoid-break {
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
+
+	.informe-page-break-before {
+		break-before: page;
+		page-break-before: always;
+	}
+
+	.informe-doc-h2 {
+		font-size: 13pt;
+	}
+
+	.informe-table {
+		font-size: 10pt;
+	}
+
+	.informe-prose {
+		font-size: 10.5pt;
+		line-height: 1.45;
+	}
+
+	@page {
+		margin: 14mm 16mm;
+		size: A4;
+	}
+}
+
+/* Pantalla: ancho cómodo para lectura tipo documento */
+.informe-doc-h2 {
+	font-family: var(--font-playfair), Georgia, serif;
+}
+
+.informe-print-only-header {
+	display: none;
+}

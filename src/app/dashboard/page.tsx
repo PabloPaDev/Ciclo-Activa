@@ -83,18 +83,16 @@ export default function DashboardPage() {
 
 	return (
 		<main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 md:px-6 md:py-8">
-			<header className={`${headerCard} relative mb-6 overflow-hidden`}>
-				<div className="pointer-events-none absolute -right-8 top-0 h-32 w-32 rounded-full bg-[#D7EFE7]/50" aria-hidden />
-				<div className="pointer-events-none absolute bottom-0 left-1/4 h-24 w-24 rounded-full bg-[#7C4DFF]/6" aria-hidden />
-				<div className="relative grid items-center gap-5 md:grid-cols-[120px_1fr] md:gap-6">
+			<header className={`${headerCard} mb-6`}>
+				<div className="grid items-center gap-5 md:grid-cols-[120px_1fr] md:gap-6">
 					<div className="flex items-center">
 						<Image src="/Ciclo-Activa.png" alt="Logo Ciclo Activa" width={112} height={32} unoptimized className="h-auto w-auto object-contain" />
 					</div>
 					<div className="min-w-0 border-l-[3px] border-[#0F5C63] pl-4 md:pl-5">
 						<p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7C4DFF]">CicloActiva</p>
-						<h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#0F2D2F] md:text-3xl">Panel entrenador</h1>
+						<h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#0F2D2F] md:text-3xl">Panel del profesional</h1>
 						<p className="mt-2 max-w-xl text-sm leading-snug text-[#5F6B6D]">
-							Visión global de estado, riesgo y seguimiento de tus atletas.
+							Genera y revisa informes iniciales de riesgo para tus atletas, con alertas importantes y lectura de estado global.
 						</p>
 					</div>
 				</div>
@@ -111,7 +109,9 @@ export default function DashboardPage() {
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div>
 						<h2 className="text-xl font-bold tracking-tight text-[#0F2D2F] md:text-2xl">Atletas</h2>
-						<p className="mt-0.5 text-xs text-[#5F6B6D]">Listado por nombre con lectura rápida de estado.</p>
+						<p className="mt-0.5 text-xs text-[#5F6B6D]">
+							Listado por nombre con riesgo LEAF-Q, alertas y estado global. Abre el informe desde cada tarjeta.
+						</p>
 					</div>
 					<Link
 						href="/coach/athletes/new"
