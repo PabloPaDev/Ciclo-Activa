@@ -7,6 +7,7 @@ type ErrorLike = {
 	code?: string;
 	status?: number;
 	name?: string;
+	bodyPreview?: string;
 };
 
 function pickErrorFields(error: unknown): ErrorLike {
@@ -33,14 +34,20 @@ function pickErrorFields(error: unknown): ErrorLike {
 				"Objeto de error vacío; suele ser fallo de red, CORS o respuesta no JSON. Revisá la pestaña Red y el insert en Supabase.",
 		};
 	}
+	const explicitDetails = (o.details as string | null | undefined) ?? null;
+	const bodyPreview =
+		typeof o.bodyPreview === "string" && o.bodyPreview.trim() ? o.bodyPreview.trim() : undefined;
+	const details =
+		explicitDetails != null && explicitDetails !== "" ? explicitDetails : bodyPreview ?? null;
 	return {
 		...fromProto,
 		message: messageFromKeys || `Error no estándar keys=[${oKeys.join(", ")}]`,
-		details: (o.details as string | null | undefined) ?? null,
+		details,
 		hint: (o.hint as string | null | undefined) ?? null,
 		code: (o.code as string | undefined) ?? undefined,
 		status: typeof o.status === "number" ? o.status : undefined,
 		name: (o.name as string | undefined) ?? fromError.name,
+		bodyPreview,
 	};
 }
 
@@ -58,29 +65,32 @@ export function logPostgrestError(context: string, error: PostgrestError | unkno
 		fields.code && `code=${JSON.stringify(fields.code)}`,
 		fields.status != null && `status=${fields.status}`,
 		fields.name && `name=${JSON.stringify(fields.name)}`,
+		fields.bodyPreview && `bodyPreview=${JSON.stringify(fields.bodyPreview)}`,
 	]
 		.filter(Boolean)
 		.join(" | ");
 
 	console.error(line || `[${context}] (error sin mensaje)`);
-	console.error(`[${context}] raw:`, error);
 
+	const logPayload = {
+		message: fields.message,
+		details: fields.details,
+		hint: fields.hint,
+		code: fields.code ?? null,
+		status: fields.status ?? null,
+		name: fields.name ?? null,
+		bodyPreview: fields.bodyPreview ?? null,
+	};
 	try {
 		console.error(
-			`[${context}] json:`,
-			JSON.stringify(
-				{
-					message: fields.message,
-					details: fields.details,
-					hint: fields.hint,
-					code: fields.code,
-					status: fields.status,
-				},
-				null,
-				0,
-			),
+			`[${context}] payload:`,
+			JSON.stringify(logPayload, (_key, value) => (value === undefined ? null : value)),
 		);
 	} catch {
-		// ignore
+		console.error(`[${context}] payload: (no serializable)`);
+	}
+
+	if (error instanceof Error && error.stack) {
+		console.error(`[${context}] stack:`, error.stack);
 	}
 }

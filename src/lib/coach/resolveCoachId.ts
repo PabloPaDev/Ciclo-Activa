@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Coach del usuario autenticado; fallback vista overview; opcional NEXT_PUBLIC_DEMO_COACH_ID (solo demo/local).
+ * Coach del usuario autenticado (cliente anon); fallback vista overview; opcional NEXT_PUBLIC_DEMO_COACH_ID.
+ * En alta de atleta, el API con service role crea la fila en `coaches` si aún no existe; no hace falta que esto devuelva id para enviar el formulario.
  */
 export async function resolveCoachIdForSession(supabase: SupabaseClient, sessionUserId: string): Promise<string | null> {
 	const { data: coachData } = await supabase.from("coaches").select("id").eq("user_id", sessionUserId).maybeSingle();

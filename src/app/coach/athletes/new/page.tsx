@@ -5,7 +5,6 @@ import Link from "next/link";
 import { FormEvent, useMemo, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateNewAthleteBasics } from "@/lib/athletes/newAthleteValidation";
-import { resolveCoachIdForSession } from "@/lib/coach/resolveCoachId";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { logPostgrestError } from "@/lib/supabase/postgrestError";
 
@@ -55,7 +54,6 @@ export default function NewAthletePage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-	const [coachId, setCoachId] = useState<string | null>(null);
 
 	const canSubmit = useMemo(() => {
 		return Boolean(form.full_name.trim() && form.email.trim() && form.sport.trim());
@@ -83,9 +81,6 @@ export default function NewAthletePage() {
 				return;
 			}
 
-			const resolvedCoachId = await resolveCoachIdForSession(supabase, session.user.id);
-			setCoachId(resolvedCoachId);
-
 			setIsLoading(false);
 		};
 
@@ -97,11 +92,6 @@ export default function NewAthletePage() {
 		setErrorMessage(null);
 
 		if (!canSubmit) {
-			return;
-		}
-
-		if (!coachId) {
-			setErrorMessage("No se encontró un coach vinculado. Si usás demo, definí NEXT_PUBLIC_DEMO_COACH_ID.");
 			return;
 		}
 
@@ -153,7 +143,7 @@ export default function NewAthletePage() {
 			}),
 		});
 
-		const json = (await res.json().catch(() => ({}))) as {
+		type CreateAthleteResponse = {
 			error?: string;
 			code?: string;
 			details?: string | null;
@@ -161,20 +151,47 @@ export default function NewAthletePage() {
 			athleteId?: string;
 		};
 
+		const rawText = await res.text();
+		const trimmed = rawText.trim();
+		let payload: CreateAthleteResponse = {};
+		if (trimmed) {
+			try {
+				payload = JSON.parse(trimmed) as CreateAthleteResponse;
+			} catch {
+				// cuerpo no JSON (p. ej. HTML de error de Next)
+			}
+		}
+
 		setIsSaving(false);
 
 		if (!res.ok) {
+			const serverMsg =
+				typeof payload.error === "string" && payload.error.trim().length > 0
+					? payload.error.trim()
+					: null;
+			const snippet =
+				trimmed && !serverMsg
+					? `${trimmed.slice(0, 400)}${trimmed.length > 400 ? "…" : ""}`
+					: null;
+			const messageForLog =
+				serverMsg ||
+				snippet ||
+				res.statusText?.trim() ||
+				`Error HTTP ${res.status}`;
+
 			logPostgrestError("api POST /api/coach/athletes", {
-				message: typeof json.error === "string" ? json.error : res.statusText || "Error desconocido",
-				details: json.details ?? null,
-				hint: json.hint ?? null,
-				code: json.code,
+				message: messageForLog,
+				status: res.status,
+				details: typeof payload.details === "string" ? payload.details : null,
+				hint: typeof payload.hint === "string" ? payload.hint : null,
+				code: typeof payload.code === "string" ? payload.code : undefined,
+				bodyPreview: snippet ?? undefined,
 			});
-			setErrorMessage(typeof json.error === "string" ? json.error : "No se pudo crear la atleta.");
+			setErrorMessage(serverMsg ?? "No se pudo crear la atleta.");
 			return;
 		}
 
-		const athleteId = json.athleteId;
+		const athleteId = payload.athleteId;
 		if (!athleteId) {
 			setErrorMessage("Respuesta inválida del servidor.");
 			return;
@@ -225,6 +242,12 @@ export default function NewAthletePage() {
 				{isLoading && <p className="text-sm text-[#5F6B6D]">Cargando formulario...</p>}
 				{errorMessage && (
 					<p className="mb-4 rounded-xl border border-[#C96B5C]/35 bg-[#C96B5C]/10 px-3 py-2 text-sm text-[#8B3F35]">{errorMessage}</p>
+				)}
+
+				{!isLoading && (
+					<p className="mb-4 rounded-lg border border-[#D9DDD8] bg-white px-3 py-2 text-xs leading-relaxed text-[#5F6B6D]">
+						Si es tu primera atleta, el servidor crea automáticamente tu registro de entrenador/a vinculado a tu cuenta al guardar.
+					</p>
 				)}
 
 				{!isLoading && (
